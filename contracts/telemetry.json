@@ -1,0 +1,25 @@
+{
+  "deviceId": "M-017",
+  "line": "L1",
+  "gatewayId": "GW-03",
+  "seq": 10234,
+  "ts": "2026-10-20T08:00:01.000Z",
+  "emit_ts": "2026-10-20T08:00:01.003Z",
+  "values": {
+    "TP2": 8.91,
+    "TP3": 8.74,
+    "H1": 9.2,
+    "DV_pressure": 0.0,
+    "Reservoirs": 8.9,
+    "Motor_current": 3.2,
+    "Oil_temperature": 68.4,
+    "COMP": 0,
+    "DV_eletric": 0,
+    "Towers": 1,
+    "MPG": 1,
+    "LPS": 0,
+    "Pressure_switch": 0,
+    "Oil_level": 1,
+    "Caudal_impulses": 1
+  }
+}

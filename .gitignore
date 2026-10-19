@@ -1,4 +1,8 @@
-﻿.env
+.env
 .venv/
 __pycache__/
 *.py[cod]
+
+# Dataset lớn và tài liệu nội bộ không commit
+data/
+*.docx

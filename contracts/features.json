@@ -1,0 +1,28 @@
+{
+  "deviceId": "M-017",
+  "line": "L1",
+  "gatewayId": "GW-03",
+  "windowStart": "2026-10-20T08:00:00.000Z",
+  "windowSec": 10,
+  "n": 10,
+  "late": false,
+  "feat": {
+    "tp2_mean": 8.9,
+    "tp2_std": 0.12,
+    "tp2_slope": 0.01,
+    "loaded_ratio": 0.42,
+    "rise_rate": 0.07,
+    "cycle_len_s": 38.0
+  },
+  "edge": {
+    "cusum_pos": 1.2,
+    "alert": false,
+    "mode": "normal"
+  },
+  "shard": 2,
+  "ts_chain": {
+    "emit_ts": "2026-10-20T08:00:10.005Z",
+    "gateway_ts": "2026-10-20T08:00:10.020Z",
+    "ingest_ts": "2026-10-20T08:00:10.035Z"
+  }
+}

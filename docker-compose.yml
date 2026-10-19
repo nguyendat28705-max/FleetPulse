@@ -1,0 +1,37 @@
+services:
+  mongo:
+    image: mongo:7
+    container_name: fleetpulse-mongo
+    command: ["--replSet", "rs0", "--bind_ip_all"]
+    ports:
+      - "${MONGO_HOST_PORT:-27017}:27017"
+    volumes:
+      - mongo_data:/data/db
+      - ./mongo:/scripts:ro
+    # Tự khởi tạo replica set rs0 ở lần chạy đầu (Change Streams bắt buộc cần replica set).
+    # Chạy lại nhiều lần vẫn an toàn: nếu đã khởi tạo thì chỉ kiểm tra rs.status().
+    healthcheck:
+      test:
+        - CMD
+        - mongosh
+        - --quiet
+        - --eval
+        - "try { rs.status().ok } catch (e) { rs.initiate({_id:'rs0',members:[{_id:0,host:'localhost:27017'}]}).ok }"
+      interval: 5s
+      timeout: 10s
+      start_period: 10s
+      retries: 20
+    restart: unless-stopped
+
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: fleetpulse-mosquitto
+    ports:
+      # Đổi MQTT_HOST_PORT trong .env nếu máy đã có broker khác chiếm cổng 1883.
+      - "${MQTT_HOST_PORT:-1883}:1883"
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+    restart: unless-stopped
+
+volumes:
+  mongo_data:
