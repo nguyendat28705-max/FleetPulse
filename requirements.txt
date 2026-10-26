@@ -5,6 +5,7 @@ pandas==3.0.6
 numpy==2.4.6
 pyarrow==26.0.0
 scipy==1.17.0
+scikit-learn==1.9.1
 fastapi==0.135.3
 uvicorn==0.44.0
 pypdf==6.10.0

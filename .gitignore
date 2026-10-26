@@ -3,6 +3,8 @@
 __pycache__/
 *.py[cod]
 
-# Dataset lớn và tài liệu nội bộ không commit
+# Dataset lon va tai lieu noi bo khong commit
 data/
 *.docx
+logs/
+*.log

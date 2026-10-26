@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from typing import Any
 import numpy as np
 
@@ -13,7 +14,7 @@ class HealthIndex:
 
     def __init__(self, baseline: dict[str, Any] | None = None) -> None:
         """Khởi tạo với baseline có sẵn hoặc học online từ cửa sổ khỏe mạnh."""
-        self.feature_keys = self.FEATURE_KEYS
+        self.feature_keys = list(self.FEATURE_KEYS)
         self.mean: np.ndarray | None = None
         self.inv_cov: np.ndarray | None = None
 
@@ -31,7 +32,16 @@ class HealthIndex:
         matrix = []
         for s in samples:
             feat = s.get("feat", s)
-            vec = [float(feat.get(k, 0.0)) for k in self.feature_keys]
+            vec = []
+            for k in self.feature_keys:
+                v = feat.get(k, 0.0)
+                try:
+                    vf = float(v)
+                    if math.isnan(vf) or math.isinf(vf):
+                        vf = 0.0
+                except (ValueError, TypeError):
+                    vf = 0.0
+                vec.append(vf)
             matrix.append(vec)
 
         data = np.array(matrix, dtype=float)
@@ -59,12 +69,30 @@ class HealthIndex:
             return 0.0
 
         target_feat = feat.get("feat", feat)
-        vec = np.array([float(target_feat.get(k, 0.0)) for k in self.feature_keys], dtype=float)
-        diff = vec - self.mean
+        vec = []
+        for i, k in enumerate(self.feature_keys):
+            val = target_feat.get(k)
+            if val is None:
+                # Nếu thiếu trường, dùng kỳ vọng baseline thay vì 0.0 để tránh false alarm
+                vec.append(float(self.mean[i]))
+            else:
+                try:
+                    vf = float(val)
+                    if math.isnan(vf) or math.isinf(vf):
+                        vec.append(float(self.mean[i]))
+                    else:
+                        vec.append(vf)
+                except (ValueError, TypeError):
+                    vec.append(float(self.mean[i]))
+
+        vec_arr = np.array(vec, dtype=float)
+        diff = vec_arr - self.mean
 
         dist_sq = float(diff.T @ self.inv_cov @ diff)
+        if math.isnan(dist_sq) or math.isinf(dist_sq):
+            return 99.0
         hi = float(np.sqrt(max(0.0, dist_sq)))
-        return round(hi, 4)
+        return round(min(999.0, hi), 4)
 
     def export_baseline(self) -> dict[str, Any]:
         """Xuất baseline sang dict để lưu vào MongoDB hoặc cache."""

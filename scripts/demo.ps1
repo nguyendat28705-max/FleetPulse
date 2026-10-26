@@ -7,65 +7,76 @@ param(
 
 $ErrorActionPreference = "Continue"
 
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$env:PYTHONIOENCODING = "utf-8"
+$env:PYTHONUTF8 = "1"
+$env:PYTHONUNBUFFERED = "1"
+
 Write-Host "==========================================================" -ForegroundColor Cyan
 Write-Host "       FleetPulse - Real-time IoT Operations Demo        " -ForegroundColor Cyan
 Write-Host "==========================================================" -ForegroundColor Cyan
 
-# 1. Kiểm tra hạ tầng Docker
-Write-Host "[1/5] Kiểm tra MongoDB & Mosquitto (Docker)..." -ForegroundColor Yellow
-docker compose up -d --wait
+# 1. Kiem tra va khoi dong Docker ha tang (Mosquitto & Docker Mongo neu dung local)
+Write-Host "[1/5] Kiem tra Mosquitto MQTT & MongoDB (Docker)..." -ForegroundColor Yellow
+docker compose up -d mosquitto mongo
 
 $mongoHealth = docker compose exec mongo mongosh --quiet --eval "rs.status().ok" 2>&1
 if ($mongoHealth -notmatch "1") {
-    Write-Host "[!] Đang khởi tạo Replica Set rs0..." -ForegroundColor Yellow
-    docker compose exec mongo mongosh --eval "rs.initiate({_id:'rs0',members:[{_id:0,host:'localhost:27017'}]})"
-    Start-Sleep 5
+    Write-Host "[!] Khoi tao Replica Set rs0 cho Docker MongoDB..." -ForegroundColor Yellow
+    docker compose exec mongo mongosh --eval "rs.initiate({_id:'rs0',members:[{_id:0,host:'localhost:27017'}]})" 2>&1 | Out-Null
+    Start-Sleep 3
 }
-Write-Host "[OK] Hạ tầng MongoDB Replica Set & Mosquitto sẵn sàng." -ForegroundColor Green
+Write-Host "[OK] Ha tang MQTT Mosquitto & Docker MongoDB san sang." -ForegroundColor Green
 
-# 2. Khởi tạo cấu trúc Database
-Write-Host "[2/5] Đảm bảo cấu trúc collection & index..." -ForegroundColor Yellow
-docker compose exec mongo mongosh --quiet "mongodb://localhost:27017/?replicaSet=rs0&directConnection=true" /scripts/setup.js
-
-# 3. Dọn tiến trình cũ nếu còn sót
+# 2. Don dep tien trinh cu va chuan bi thu muc log
+Write-Host "[2/5] Don tien trinh cu & khoi tao logs/..." -ForegroundColor Yellow
 & "$PSScriptRoot\down.ps1"
 
-# 4. Khởi động các dịch vụ nền
-Write-Host "[3/5] Khởi động Ingestion, Gateway, Engine, Scheduler..." -ForegroundColor Yellow
+$logDir = Join-Path $PSScriptRoot "..\logs"
+if (-not (Test-Path $logDir)) {
+    New-Item -ItemType Directory -Path $logDir -Force | Out-Null
+}
 
+# 3. Xac dinh python binary
 $pythonExe = "$PSScriptRoot\..\.venv\Scripts\python.exe"
 if (-not (Test-Path $pythonExe)) {
     $pythonExe = "python"
 }
 
-# Ingestion
-Start-Process -FilePath $pythonExe -ArgumentList "-m ingestion.run" -WorkingDirectory "$PSScriptRoot\.." -WindowStyle Minimized
-Write-Host "  -> Ingestion Service đã chạy." -ForegroundColor DarkCyan
+# 4. Khoi dong cac dich vu nen (ghi log vao thu muc logs/)
+Write-Host "[3/5] Khoi dong Ingestion, Gateway, Streaming Engine, Scheduler..." -ForegroundColor Yellow
 
-# Gateway
-Start-Process -FilePath $pythonExe -ArgumentList "-m gateway.run --gateway-id all" -WorkingDirectory "$PSScriptRoot\.." -WindowStyle Minimized
-Write-Host "  -> Edge Gateway đã chạy." -ForegroundColor DarkCyan
+Start-Process -FilePath $pythonExe -ArgumentList "-u -m ingestion.run" -WorkingDirectory "$PSScriptRoot\.." -RedirectStandardOutput "$logDir\ingestion.log" -RedirectStandardError "$logDir\ingestion_err.log" -WindowStyle Minimized
+Write-Host "  -> Ingestion Service (MQTT -> MongoDB) da chay." -ForegroundColor DarkCyan
 
-# Engine
-Start-Process -FilePath $pythonExe -ArgumentList "-m engine.run --shard 0 --shards 4" -WorkingDirectory "$PSScriptRoot\.." -WindowStyle Minimized
-Write-Host "  -> Streaming Engine (Shard 0) đã chạy." -ForegroundColor DarkCyan
+Start-Process -FilePath $pythonExe -ArgumentList "-u -m gateway.run --gateway-id all" -WorkingDirectory "$PSScriptRoot\.." -RedirectStandardOutput "$logDir\gateway.log" -RedirectStandardError "$logDir\gateway_err.log" -WindowStyle Minimized
+Write-Host "  -> Edge Gateway (Window 10s -> Features) da chay." -ForegroundColor DarkCyan
 
-# Scheduler (FastAPI)
-Start-Process -FilePath $pythonExe -ArgumentList "-m uvicorn scheduler.app:app --port 8002" -WorkingDirectory "$PSScriptRoot\.." -WindowStyle Minimized
-Write-Host "  -> Scheduler & Action Service (port 8002) đã chạy." -ForegroundColor DarkCyan
+Start-Process -FilePath $pythonExe -ArgumentList "-u -m engine.run --shard all" -WorkingDirectory "$PSScriptRoot\.." -RedirectStandardOutput "$logDir\engine.log" -RedirectStandardError "$logDir\engine_err.log" -WindowStyle Minimized
+Write-Host "  -> Streaming Engine (Change Streams -> HI/RUL) da chay." -ForegroundColor DarkCyan
 
-Start-Sleep 3
+Start-Process -FilePath $pythonExe -ArgumentList "-u -m uvicorn scheduler.app:app --host 0.0.0.0 --port 8002" -WorkingDirectory "$PSScriptRoot\.." -RedirectStandardOutput "$logDir\scheduler.log" -RedirectStandardError "$logDir\scheduler_err.log" -WindowStyle Minimized
+Write-Host "  -> Scheduler & Action Service (port 8002) da chay." -ForegroundColor DarkCyan
 
-# 5. Khởi động Simulator
-Write-Host "[4/5] Khởi động Fleet Simulator ($Devices thiết bị, tốc độ ${Speed}x)..." -ForegroundColor Yellow
-Start-Process -FilePath $pythonExe -ArgumentList "-m simulator.run --devices $Devices --speed $Speed --seed $Seed" -WorkingDirectory "$PSScriptRoot\.." -WindowStyle Minimized
-Write-Host "  -> Simulator đã phát dữ liệu lên MQTT." -ForegroundColor DarkCyan
+Start-Sleep 2
+
+# 5. Khoi dong Simulator
+Write-Host "[4/5] Khoi dong Fleet Simulator ($Devices thiet bi, toc do ${Speed}x)..." -ForegroundColor Yellow
+Start-Process -FilePath $pythonExe -ArgumentList "-u -m simulator.run --devices $Devices --speed $Speed --seed $Seed" -WorkingDirectory "$PSScriptRoot\.." -RedirectStandardOutput "$logDir\simulator.log" -RedirectStandardError "$logDir\simulator_err.log" -WindowStyle Minimized
+Write-Host "  -> Simulator da bat dau phat du lieu telemetry." -ForegroundColor DarkCyan
+
+Write-Host "[5/5] Cho du lieu dong bo (5 giay)..." -ForegroundColor Yellow
+Start-Sleep 5
+
+# Kiem tra trang thai thuc te
+& $pythonExe "$PSScriptRoot\check_status.py"
 
 Write-Host "==========================================================" -ForegroundColor Green
-Write-Host "[OK] Toàn bộ hệ thống FleetPulse đã được khởi động!" -ForegroundColor Green
-Write-Host "Để theo dõi trạng thái:" -ForegroundColor White
-Write-Host "  - Trạng thái thiết bị:  mongosh 'mongodb://localhost:27017/?replicaSet=rs0&directConnection=true' --eval 'use fleetpulse_dev; db.device_state.find().pretty()'" -ForegroundColor Gray
-Write-Host "  - Tiêm lỗi rò khí:      python -m simulator.inject --device M-017 --type air_leak --severity 0.7" -ForegroundColor Gray
-Write-Host "  - Xem lệnh bảo trì:     Invoke-RestMethod http://localhost:8002/work_orders" -ForegroundColor Gray
-Write-Host "  - Dừng tất cả:          .\scripts\down.ps1" -ForegroundColor Gray
+Write-Host "[OK] Toan bo he thong FleetPulse dang hoat dong!" -ForegroundColor Green
+Write-Host "Cac lenh thao tac huu ich:" -ForegroundColor White
+Write-Host "  - Kiem tra du lieu:     python scripts/check_status.py" -ForegroundColor Cyan
+Write-Host "  - Xem log chi tiet:     Get-Content logs\engine.log -Tail 20" -ForegroundColor Gray
+Write-Host "  - Tiem loi ro khi:      python -m simulator.inject --device M-017 --type air_leak --severity 0.7" -ForegroundColor Gray
+Write-Host "  - Xem lenh bao tri:     Invoke-RestMethod http://localhost:8002/work_orders" -ForegroundColor Gray
+Write-Host "  - Dung tat ca:          .\scripts\down.ps1" -ForegroundColor Gray
 Write-Host "==========================================================" -ForegroundColor Green

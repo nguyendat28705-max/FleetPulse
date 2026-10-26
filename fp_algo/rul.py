@@ -41,6 +41,10 @@ class KalmanRul:
 
     def update(self, hi: float, t: float) -> dict[str, float]:
         """Cập nhật với một quan sát HI mới tại thời điểm t (giây)."""
+        if math.isnan(hi) or math.isinf(hi):
+            hi = 99.0
+        hi = max(0.0, float(hi))
+
         if self.last_t is None:
             self.last_t = t
             self.x[0] = hi
@@ -99,16 +103,22 @@ class KalmanRul:
 
         # RUL tính bằng giây -> chuyển sang giờ
         rul_sec = remaining_hi / rate
-        rul_hours = rul_sec / 3600.0
+        rul_hours = min(999.0, rul_sec / 3600.0)
 
-        # Ước tính độ bất định của RUL theo vi phân gần đúng
-        sigma_rul = (math.sqrt(hi_var) / rate + remaining_hi * math.sqrt(rate_var) / (rate**2)) / 3600.0
-        rul_low = max(0.0, rul_hours - 1.96 * sigma_rul)
-        rul_high = min(999.0, rul_hours + 1.96 * sigma_rul)
+        # Nếu tốc độ suy giảm rất bé (gần như không có xu hướng hỏng)
+        if rate <= 1e-5:
+            rul_low = round(max(0.0, rul_hours * 0.8), 2)
+            rul_high = round(min(999.0, rul_hours * 1.2), 2)
+        else:
+            # Ước tính độ bất định của RUL theo vi phân gần đúng
+            rel_var = (hi_var / (remaining_hi**2 + 1e-6)) + (rate_var / (rate**2))
+            sigma_rul = rul_hours * math.sqrt(max(0.0, rel_var))
+            rul_low = round(max(0.0, rul_hours - 1.96 * sigma_rul), 2)
+            rul_high = round(min(999.0, rul_hours + 1.96 * sigma_rul), 2)
 
         return {
-            "rul_hours": round(min(999.0, rul_hours), 2),
-            "rul_low": round(rul_low, 2),
-            "rul_high": round(rul_high, 2),
+            "rul_hours": round(rul_hours, 2),
+            "rul_low": rul_low,
+            "rul_high": rul_high,
             "hi": round(hi, 3),
         }
