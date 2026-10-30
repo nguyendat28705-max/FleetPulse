@@ -33,7 +33,7 @@ from simulator.run import FleetSimulator
 
 TEST_MONGO_URI = "mongodb://localhost:27017/?replicaSet=rs0&directConnection=true"
 TEST_DB_NAME = "fleetpulse_e2e_live_test"
-MQTT_HOST = "localhost"
+MQTT_HOST = "127.0.0.1"
 MQTT_PORT = 1883
 
 

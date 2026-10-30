@@ -128,9 +128,10 @@ def test_virtual_device_fault_mechanics():
     assert temp_stuck == 62.0
 
 
+@patch("pathlib.Path.exists", return_value=True)
 @patch("simulator.run.create_mongo_client")
 @patch("simulator.run.pd.read_parquet")
-def test_simulator_sync_faults_priority_and_offset(mock_read_parquet, mock_create_mongo):
+def test_simulator_sync_faults_priority_and_offset(mock_read_parquet, mock_create_mongo, mock_exists):
     """Kiem tra sync_faults uu tien loi moi nhat va tinh toan trigger_ts theo offset_sec."""
     # Mock dataframe
     dummy_df = pd.DataFrame({
@@ -167,3 +168,5 @@ def test_simulator_sync_faults_priority_and_offset(mock_read_parquet, mock_creat
     assert dev1.active_fault["type"] == "stuck_comp"
     # trigger_ts phai cach t0 dung 30 giay
     assert pytest.approx(dev1.trigger_ts, rel=1e-3) == now.timestamp() + 30
+
+

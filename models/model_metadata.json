@@ -1,0 +1,27 @@
+{
+  "contract_version": "1.1.0",
+  "trained_at": "2026-10-30T10:59:34.495148+00:00",
+  "feature_order": [
+    "tp2_mean",
+    "tp2_std",
+    "tp2_slope",
+    "loaded_ratio",
+    "rise_rate",
+    "cycle_len_s",
+    "oil_temp_mean",
+    "oil_temp_max",
+    "motor_current_mean",
+    "motor_current_p95",
+    "delta_pressure"
+  ],
+  "total_train_samples": 142660,
+  "total_val_samples": 36053,
+  "total_test_samples": 73844,
+  "training_duration_seconds": 3.36,
+  "metrics": {
+    "val_hi_mae": 0.4895,
+    "test_hi_mae": 0.1961,
+    "val_rul_mae_hours": 51.1,
+    "test_rul_mae_hours": 54.98
+  }
+}

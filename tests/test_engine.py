@@ -11,7 +11,7 @@ from engine.run import DeviceProcessor, StreamingEngine
 
 
 def test_device_processor_healthy_to_degraded() -> None:
-    proc = DeviceProcessor("M-001")
+    proc = DeviceProcessor("M-001", predictor_mode="baseline")
 
     # 1. Cửa sổ bình thường
     healthy_doc = {
@@ -219,3 +219,4 @@ def test_resume_token_checkpoint_save_and_load(mock_create_mongo) -> None:
     mock_db["engine_checkpoints"].find_one.return_value = {"_id": "shard_2", "resume_token": dummy_token}
     loaded = engine._load_checkpoint()
     assert loaded == dummy_token
+
